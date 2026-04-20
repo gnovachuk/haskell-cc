@@ -12,6 +12,6 @@ main = do
   let tokens = lexer contents
   case tokens of
     Left err -> putStrLn err
-    Right ts -> case runParser parseExpr ts of
+    Right ts -> case runParser parseStmt ts of
       Left err -> putStrLn err
-      Right (expr, _) -> writeFile "output.asm" (emitProgram expr)
+      Right (stmt, _) -> writeFile "output.asm" (emitProgram stmt)

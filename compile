@@ -3,8 +3,8 @@
 if [ "$1" = "--link" ]; then
     echo "Skipping compilation..."
 else
-    cabal run haskell-cc -- test.fc
+    cabal run haskell-cc -- test.c
 fi
 
 as -o output.o output.asm
-clang -o a.out output.o -lc
+clang -o program.out output.o -lc

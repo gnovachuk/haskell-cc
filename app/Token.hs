@@ -4,6 +4,7 @@ module Token (Token (..), Keyword (..)) where
 
 data Keyword
   = IntKw
+  | PrintKw -- Temporary Solution
   deriving (Show, Eq)
 
 data Token where
@@ -17,4 +18,6 @@ data Token where
   Semicolon :: Token
   OpenParen :: Token
   CloseParen :: Token
+  OpenBrace :: Token
+  CloseBrace :: Token
   deriving (Show, Eq)

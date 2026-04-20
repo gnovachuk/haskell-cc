@@ -13,6 +13,8 @@ lexer input =
       ';' -> (Semicolon :) <$> lexer rest
       '(' -> (OpenParen :) <$> lexer rest
       ')' -> (CloseParen :) <$> lexer rest
+      '{' -> (OpenBrace :) <$> lexer rest
+      '}' -> (CloseBrace :) <$> lexer rest
       _
         | isDigit ch ->
             let (digits, rest') = span isDigit input
@@ -27,4 +29,5 @@ lexer input =
 wordToToken :: String -> Token
 wordToToken word = case word of
   "int" -> Keyword IntKw
+  "print" -> Keyword PrintKw
   _ -> Identifier word

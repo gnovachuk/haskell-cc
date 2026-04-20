@@ -1,4 +1,4 @@
-module AST (Expr (..), Op (..)) where
+module AST (Expr (..), Stmt (..), Op (..)) where
 
 data Op
   = Add
@@ -7,5 +7,13 @@ data Op
 
 data Expr
   = LitExpr Int
+  | VarExpr String
   | BinOp Op Expr Expr
+  deriving (Show)
+
+data Stmt
+  = Assign String Expr
+  | VarDecl String Expr
+  | Print Expr
+  | Block [Stmt]
   deriving (Show)

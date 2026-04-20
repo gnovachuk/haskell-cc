@@ -2,7 +2,7 @@
 
 {- HLINT ignore "Use <$>" -}
 
-module Parser (Parser (..), parseExpr) where
+module Parser (Parser (..), parseStmt) where
 
 import AST
 import Token
@@ -32,6 +32,15 @@ instance Monad Parser where
             Left msg -> Left msg
             Right (a, rest) -> runParser (f a) rest
       )
+
+many :: Parser a -> Parser [a]
+many p =
+  ( do
+      x <- p
+      rest <- many p
+      pure (x : rest)
+  )
+    `orElse` pure []
 
 expect :: Token -> Parser ()
 expect t =
@@ -69,11 +78,6 @@ orElse p1 p2 =
 failParser :: String -> Parser a
 failParser msg = Parser (\_ -> Left msg)
 
-tokenToOp :: Token -> Maybe Op
-tokenToOp Plus = Just Add
-tokenToOp Multiply = Just Mul
-tokenToOp _ = Nothing
-
 parseLiteral :: Parser Expr
 parseLiteral = LitExpr <$> satisfy (\case Literal n -> Just n; _ -> Nothing)
 
@@ -98,7 +102,10 @@ parseTerm = do
     `orElse` pure lhs
 
 parseFactor :: Parser Expr
-parseFactor = parseLiteral
+parseFactor = parseLiteral `orElse` parseVarExpr
+
+parseVarExpr :: Parser Expr
+parseVarExpr = VarExpr <$> satisfy (\case Identifier ident -> Just ident; _ -> Nothing)
 
 parseAddOp :: Parser Op
 parseAddOp =
@@ -115,3 +122,33 @@ parseMulOp =
         Multiply -> Just Mul
         _ -> Nothing
     )
+
+parseStmt :: Parser Stmt
+parseStmt = do
+  stmt <-
+    parseVarDecl
+      `orElse` parsePrint
+      `orElse` parseBlock
+  expect Semicolon
+  pure stmt
+
+parseVarDecl :: Parser Stmt
+parseVarDecl = do
+  expect $ Keyword IntKw
+  id <- satisfy (\case Identifier id -> Just id; _ -> Nothing)
+  expect Equal
+  expr <- parseExpr
+  pure (VarDecl id expr)
+
+parsePrint :: Parser Stmt -- temporary solution to printing
+parsePrint = do
+  expect $ Keyword PrintKw
+  expr <- parseExpr
+  pure (Print expr)
+
+parseBlock :: Parser Stmt
+parseBlock = do
+  expect OpenBrace
+  stmts <- many parseStmt
+  expect CloseBrace
+  pure (Block stmts)
