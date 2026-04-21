@@ -1,3 +1,7 @@
-while (1) {
-    print 1;
+{
+    int i = 10;
+    while (i) {
+        i = i - 1;
+        print i;
+    }
 }

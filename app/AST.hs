@@ -2,6 +2,7 @@ module AST (Expr (..), Stmt (..), Op (..)) where
 
 data Op
   = Add
+  | Sub
   | Mul
   deriving (Show)
 
@@ -9,11 +10,12 @@ data Expr
   = LitExpr Int
   | VarExpr String
   | BinOp Op Expr Expr
+  | Assign Expr Expr
   deriving (Show)
 
 data Stmt
-  = Assign String Expr
-  | VarDecl String Expr
+  = VarDecl String Expr
+  | ExprStmt Expr
   | Print Expr
   | Block [Stmt]
   | If Expr Stmt (Maybe Stmt)

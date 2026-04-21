@@ -8,6 +8,7 @@ lexer input =
   case input of
     (ch : rest) -> case ch of
       '+' -> (Plus :) <$> lexer rest
+      '-' -> (Minus :) <$> lexer rest
       '*' -> (Multiply :) <$> lexer rest
       '=' -> (Equal :) <$> lexer rest
       ';' -> (Semicolon :) <$> lexer rest

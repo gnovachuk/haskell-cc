@@ -15,3 +15,5 @@ main = do
     Right ts -> case runParser parseStmt ts of
       Left err -> putStrLn err
       Right (stmt, _) -> writeFile "output.asm" (emitProgram stmt)
+
+-- Right (stmt, _) -> print stmt

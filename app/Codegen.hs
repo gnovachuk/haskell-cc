@@ -94,7 +94,13 @@ codegenStmt table labelCount stmt = case stmt of
               "endwhile_" ++ show labelCount ++ ":"
             ]
      in (code, table, labelCount')
-  _ -> error "Unsupported statement"
+  ExprStmt expr ->
+    let code =
+          unlines
+            [ codegenExpr table expr,
+              "  add sp, sp, 16    ; cleanup stack (pop expr result)"
+            ]
+     in (code, table, labelCount)
 
 codegenStmts :: SymTable -> LabelCount -> [Stmt] -> (String, LabelCount)
 codegenStmts _ lc [] = ("", lc)
@@ -129,9 +135,26 @@ codegenExpr table expr = case expr of
         "  " ++ opToInstr op ++ " x0, x0, x1",
         "  str x0, [sp, -16]!"
       ]
+  Assign lhs rhs ->
+    let varName = exprToLValue lhs
+        offset = case lookup varName table of
+          Just o -> o
+          Nothing -> error $ "Variable not found: " ++ varName
+        code =
+          unlines
+            [ codegenExpr table rhs,
+              "  ldr x0, [sp]", -- peek top of stack (without popping result of rhs)
+              "  str x0, [x29, #-" ++ show (offset * 16) ++ "]"
+            ]
+     in code
+
+exprToLValue :: Expr -> String -- Temporary helper that extracts lvalue
+exprToLValue (VarExpr name) = name -- Should be done in semantic analysis stage
+exprToLValue e = error $ "Invalid lvalue: " ++ show e
 
 opToInstr :: Op -> String
 opToInstr Add = "add"
+opToInstr Sub = "sub"
 opToInstr Mul = "mul"
 
 fst3 :: (a, b, c) -> a

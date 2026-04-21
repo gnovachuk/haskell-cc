@@ -82,12 +82,15 @@ parseLiteral :: Parser Expr
 parseLiteral = LitExpr <$> satisfy (\case Literal n -> Just n; _ -> Nothing)
 
 parseExpr :: Parser Expr
-parseExpr = do
+parseExpr = parseAssign
+
+parseAssign :: Parser Expr
+parseAssign = do
   lhs <- parseTerm
   ( do
-      op <- parseAddOp
-      rhs <- parseExpr
-      pure (BinOp op lhs rhs)
+      expect Equal
+      rhs <- parseAssign -- right associative
+      pure (Assign lhs rhs)
     )
     `orElse` pure lhs
 
@@ -95,14 +98,24 @@ parseTerm :: Parser Expr
 parseTerm = do
   lhs <- parseFactor
   ( do
-      op <- parseMulOp
+      op <- parseAddOp
       rhs <- parseTerm
       pure (BinOp op lhs rhs)
     )
     `orElse` pure lhs
 
 parseFactor :: Parser Expr
-parseFactor = parseLiteral `orElse` parseVarExpr
+parseFactor = do
+  lhs <- parsePrimary
+  ( do
+      op <- parseMulOp
+      rhs <- parseFactor
+      pure (BinOp op lhs rhs)
+    )
+    `orElse` pure lhs
+
+parsePrimary :: Parser Expr
+parsePrimary = parseLiteral `orElse` parseVarExpr
 
 parseVarExpr :: Parser Expr
 parseVarExpr = VarExpr <$> satisfy (\case Identifier ident -> Just ident; _ -> Nothing)
@@ -112,6 +125,7 @@ parseAddOp =
   satisfy
     ( \case
         Plus -> Just Add
+        Minus -> Just Sub
         _ -> Nothing
     )
 
@@ -130,15 +144,22 @@ parseStmt =
     `orElse` parseBlock
     `orElse` parseIf
     `orElse` parseWhile
+    `orElse` parseExprStmt
+
+parseExprStmt :: Parser Stmt
+parseExprStmt = do
+  expr <- parseExpr
+  expect Semicolon
+  pure (ExprStmt expr)
 
 parseVarDecl :: Parser Stmt
 parseVarDecl = do
   expect $ Keyword IntKw
-  id <- satisfy (\case Identifier id -> Just id; _ -> Nothing)
+  ident <- satisfy (\case Identifier ident -> Just ident; _ -> Nothing)
   expect Equal
   expr <- parseExpr
   expect Semicolon
-  pure (VarDecl id expr)
+  pure (VarDecl ident expr)
 
 parsePrint :: Parser Stmt -- temporary solution to printing
 parsePrint = do

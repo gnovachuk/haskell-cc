@@ -16,6 +16,7 @@ data Token where
   Identifier :: String -> Token
   -- Operators
   Plus :: Token
+  Minus :: Token
   Multiply :: Token
   Equal :: Token
   Semicolon :: Token
