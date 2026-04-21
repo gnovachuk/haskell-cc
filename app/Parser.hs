@@ -140,11 +140,25 @@ parseMulOp =
 parseStmt :: Parser Stmt
 parseStmt =
   parseVarDecl
+    `orElse` parseBreak
+    `orElse` parseContinue
     `orElse` parsePrint
     `orElse` parseBlock
     `orElse` parseIf
     `orElse` parseWhile
     `orElse` parseExprStmt
+
+parseBreak :: Parser Stmt
+parseBreak = do
+  expect $ Keyword BreakKw
+  expect Semicolon
+  pure Break
+
+parseContinue :: Parser Stmt
+parseContinue = do
+  expect $ Keyword ContinueKw
+  expect Semicolon
+  pure Continue
 
 parseExprStmt :: Parser Stmt
 parseExprStmt = do

@@ -6,6 +6,8 @@ type SymTable = [(String, Int)]
 
 type LabelCount = Int
 
+type CurrentLoop = Maybe Int
+
 emitProgram :: Stmt -> String
 emitProgram stmt =
   unlines
@@ -22,7 +24,7 @@ emitProgram stmt =
       "  stp x29, x30, [sp, -16]!    ; push old frame and link register onto stack",
       "  mov x29, sp                 ; x29 -> base of stack frame"
     ]
-    ++ fst3 (codegenStmt [] 0 stmt)
+    ++ fst3 (codegenStmt [] 0 Nothing stmt)
     ++ unlines
       [ "; exit cleanly",
         "  ldp x29, x30, [sp], 16    ; restore frame & link register",
@@ -31,8 +33,8 @@ emitProgram stmt =
         "  svc #0x80    ; make the syscall"
       ]
 
-codegenStmt :: SymTable -> LabelCount -> Stmt -> (String, SymTable, LabelCount)
-codegenStmt table labelCount stmt = case stmt of
+codegenStmt :: SymTable -> LabelCount -> CurrentLoop -> Stmt -> (String, SymTable, LabelCount)
+codegenStmt table labelCount currentLoop stmt = case stmt of
   Print expr ->
     let code =
           unlines
@@ -57,13 +59,13 @@ codegenStmt table labelCount stmt = case stmt of
         table' = (name, offset) : table
      in (code, table', labelCount)
   Block stmts ->
-    let (code, labelCount') = codegenStmts table labelCount stmts
+    let (code, labelCount') = codegenStmts table labelCount currentLoop stmts
      in (code, table, labelCount') -- Restore original table (so symbols in inner block scope dissapear)
   If cond thenStmt elseStmt ->
-    let (thenCode, _, labelCount') = codegenStmt table (labelCount + 1) thenStmt
+    let (thenCode, _, labelCount') = codegenStmt table (labelCount + 1) currentLoop thenStmt
         (elseCode, _, labelCount'') = case elseStmt of
           Nothing -> ("", table, labelCount')
-          Just elseStmt' -> codegenStmt table (labelCount' + 1) elseStmt'
+          Just elseStmt' -> codegenStmt table (labelCount' + 1) currentLoop elseStmt'
         code =
           unlines
             [ codegenExpr table cond,
@@ -81,7 +83,7 @@ codegenStmt table labelCount stmt = case stmt of
             ]
      in (code, table, labelCount'')
   While cond body ->
-    let (bodyCode, _, labelCount') = codegenStmt table (labelCount + 1) body
+    let (bodyCode, _, labelCount') = codegenStmt table (labelCount + 1) (Just labelCount) body
         code =
           unlines
             [ "while_" ++ show labelCount ++ ":",
@@ -94,6 +96,24 @@ codegenStmt table labelCount stmt = case stmt of
               "endwhile_" ++ show labelCount ++ ":"
             ]
      in (code, table, labelCount')
+  Break ->
+    let code =
+          "  b endwhile_"
+            ++ ( case currentLoop of
+                   Just n -> show n
+                   Nothing -> error "break outside of loop"
+               )
+            ++ "\n"
+     in (code, table, labelCount)
+  Continue ->
+    let code =
+          "  b while_"
+            ++ ( case currentLoop of
+                   Just n -> show n
+                   Nothing -> error "continue outside of loop"
+               )
+            ++ "\n"
+     in (code, table, labelCount)
   ExprStmt expr ->
     let code =
           unlines
@@ -102,11 +122,11 @@ codegenStmt table labelCount stmt = case stmt of
             ]
      in (code, table, labelCount)
 
-codegenStmts :: SymTable -> LabelCount -> [Stmt] -> (String, LabelCount)
-codegenStmts _ lc [] = ("", lc)
-codegenStmts table labelCount (stmt : rest) =
-  let (code, table', labelCount') = codegenStmt table labelCount stmt
-      (restCode, labelCount'') = codegenStmts table' labelCount' rest
+codegenStmts :: SymTable -> LabelCount -> CurrentLoop -> [Stmt] -> (String, LabelCount)
+codegenStmts _ lc _ [] = ("", lc)
+codegenStmts table labelCount currentLoop (stmt : rest) =
+  let (code, table', labelCount') = codegenStmt table labelCount currentLoop stmt
+      (restCode, labelCount'') = codegenStmts table' labelCount' currentLoop rest
    in (code ++ restCode, labelCount'')
 
 codegenExpr :: SymTable -> Expr -> String

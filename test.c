@@ -1,7 +1,8 @@
 {
     int i = 10;
     while (i) {
-        i = i - 1;
         print i;
+        if (i - 5) 0; else continue;
+        i = i - 1;
     }
 }

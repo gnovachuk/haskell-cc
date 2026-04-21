@@ -34,4 +34,6 @@ wordToToken word = case word of
   "if" -> Keyword IfKw
   "else" -> Keyword ElseKw
   "while" -> Keyword WhileKw
+  "break" -> Keyword BreakKw
+  "continue" -> Keyword ContinueKw
   _ -> Identifier word

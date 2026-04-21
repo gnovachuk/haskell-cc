@@ -14,7 +14,9 @@ data Expr
   deriving (Show)
 
 data Stmt
-  = VarDecl String Expr
+  = Break
+  | Continue
+  | VarDecl String Expr
   | ExprStmt Expr
   | Print Expr
   | Block [Stmt]

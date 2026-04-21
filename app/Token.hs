@@ -8,6 +8,8 @@ data Keyword
   | IfKw
   | ElseKw
   | WhileKw
+  | BreakKw
+  | ContinueKw
   deriving (Show, Eq)
 
 data Token where
