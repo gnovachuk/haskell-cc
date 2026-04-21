@@ -124,13 +124,11 @@ parseMulOp =
     )
 
 parseStmt :: Parser Stmt
-parseStmt = do
-  stmt <-
-    parseVarDecl
-      `orElse` parsePrint
-      `orElse` parseBlock
-  expect Semicolon
-  pure stmt
+parseStmt =
+  parseVarDecl
+    `orElse` parsePrint
+    `orElse` parseBlock
+    `orElse` parseIf
 
 parseVarDecl :: Parser Stmt
 parseVarDecl = do
@@ -138,12 +136,14 @@ parseVarDecl = do
   id <- satisfy (\case Identifier id -> Just id; _ -> Nothing)
   expect Equal
   expr <- parseExpr
+  expect Semicolon
   pure (VarDecl id expr)
 
 parsePrint :: Parser Stmt -- temporary solution to printing
 parsePrint = do
   expect $ Keyword PrintKw
   expr <- parseExpr
+  expect Semicolon
   pure (Print expr)
 
 parseBlock :: Parser Stmt
@@ -152,3 +152,19 @@ parseBlock = do
   stmts <- many parseStmt
   expect CloseBrace
   pure (Block stmts)
+
+parseIf :: Parser Stmt
+parseIf = do
+  expect $ Keyword IfKw
+  expect OpenParen
+  cond <- parseExpr
+  expect CloseParen
+  body <- parseStmt
+  elseBranch <- parseElse `orElse` pure Nothing
+  pure (If cond body elseBranch)
+
+parseElse :: Parser (Maybe Stmt)
+parseElse = do
+  expect $ Keyword ElseKw
+  stmt <- parseStmt
+  pure (Just stmt)

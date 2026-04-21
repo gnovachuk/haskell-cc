@@ -16,4 +16,5 @@ data Stmt
   | VarDecl String Expr
   | Print Expr
   | Block [Stmt]
+  | If Expr Stmt (Maybe Stmt)
   deriving (Show)

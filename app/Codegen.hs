@@ -4,6 +4,8 @@ import AST
 
 type SymTable = [(String, Int)]
 
+type LabelCount = Int
+
 emitProgram :: Stmt -> String
 emitProgram stmt =
   unlines
@@ -20,7 +22,7 @@ emitProgram stmt =
       "  stp x29, x30, [sp, -16]!    ; push old frame and link register onto stack",
       "  mov x29, sp                 ; x29 -> base of stack frame"
     ]
-    ++ fst (codegenStmt [] stmt)
+    ++ fst3 (codegenStmt [] 0 stmt)
     ++ unlines
       [ "; exit cleanly",
         "  ldp x29, x30, [sp], 16    ; restore frame & link register",
@@ -29,8 +31,8 @@ emitProgram stmt =
         "  svc #0x80    ; make the syscall"
       ]
 
-codegenStmt :: SymTable -> Stmt -> (String, SymTable)
-codegenStmt table stmt = case stmt of
+codegenStmt :: SymTable -> LabelCount -> Stmt -> (String, SymTable, LabelCount)
+codegenStmt table labelCount stmt = case stmt of
   Print expr ->
     let code =
           unlines
@@ -41,7 +43,7 @@ codegenStmt table stmt = case stmt of
               "  bl _printf   ; call printf",
               "  add sp, sp, 16    ; cleanup stack (pop expr result)"
             ]
-     in (code, table)
+     in (code, table, labelCount)
   VarDecl name expr ->
     let offset = 1 + length table
         code =
@@ -53,17 +55,39 @@ codegenStmt table stmt = case stmt of
               "  sub sp, sp, #16"
             ]
         table' = (name, offset) : table
-     in (code, table')
+     in (code, table', labelCount)
   Block stmts ->
-    let code = codegenStmts table stmts
-     in (code, table) -- Restore original table (so symbols in inner block scope dissapear)
+    let (code, labelCount') = codegenStmts table labelCount stmts
+     in (code, table, labelCount') -- Restore original table (so symbols in inner block scope dissapear)
+  If cond thenStmt elseStmt ->
+    let (thenCode, _, labelCount') = codegenStmt table (labelCount + 1) thenStmt
+        (elseCode, _, labelCount'') = case elseStmt of
+          Nothing -> ("", table, labelCount')
+          Just elseStmt' -> codegenStmt table (labelCount' + 1) elseStmt'
+        code =
+          unlines
+            [ codegenExpr table cond,
+              "  ldr x0, [sp], 16",
+              "  cmp x0, #0      ; if condition false (== 0), jump to end/else (skip if stmt)",
+              case elseStmt of
+                Nothing -> "  beq end_" ++ show labelCount
+                Just _ -> "  beq else_" ++ show labelCount,
+              thenCode, -- ignore symbol table, right?
+              "  b end_" ++ show labelCount, -- skip past ElseStmt (redundant when there's no else branch)
+              case elseStmt of
+                Nothing -> ""
+                Just _ -> "else_" ++ show labelCount ++ ":\n" ++ elseCode,
+              "end_" ++ show labelCount ++ ":"
+            ]
+     in (code, table, labelCount'')
   _ -> error "Unsupported statement"
 
-codegenStmts :: SymTable -> [Stmt] -> String
-codegenStmts _ [] = ""
-codegenStmts table (stmt : rest) =
-  let (code, table') = codegenStmt table stmt
-   in code ++ codegenStmts table' rest
+codegenStmts :: SymTable -> LabelCount -> [Stmt] -> (String, LabelCount)
+codegenStmts _ lc [] = ("", lc)
+codegenStmts table labelCount (stmt : rest) =
+  let (code, table', labelCount') = codegenStmt table labelCount stmt
+      (restCode, labelCount'') = codegenStmts table' labelCount' rest
+   in (code ++ restCode, labelCount'')
 
 codegenExpr :: SymTable -> Expr -> String
 codegenExpr table expr = case expr of
@@ -95,3 +119,6 @@ codegenExpr table expr = case expr of
 opToInstr :: Op -> String
 opToInstr Add = "add"
 opToInstr Mul = "mul"
+
+fst3 :: (a, b, c) -> a
+fst3 (x, _, _) = x

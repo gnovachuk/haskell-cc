@@ -5,6 +5,8 @@ module Token (Token (..), Keyword (..)) where
 data Keyword
   = IntKw
   | PrintKw -- Temporary Solution
+  | IfKw
+  | ElseKw
   deriving (Show, Eq)
 
 data Token where

@@ -30,4 +30,6 @@ wordToToken :: String -> Token
 wordToToken word = case word of
   "int" -> Keyword IntKw
   "print" -> Keyword PrintKw
+  "if" -> Keyword IfKw
+  "else" -> Keyword ElseKw
   _ -> Identifier word
