@@ -7,6 +7,7 @@ data Keyword
   | PrintKw -- Temporary Solution
   | IfKw
   | ElseKw
+  | WhileKw
   deriving (Show, Eq)
 
 data Token where

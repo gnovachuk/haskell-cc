@@ -129,6 +129,7 @@ parseStmt =
     `orElse` parsePrint
     `orElse` parseBlock
     `orElse` parseIf
+    `orElse` parseWhile
 
 parseVarDecl :: Parser Stmt
 parseVarDecl = do
@@ -168,3 +169,12 @@ parseElse = do
   expect $ Keyword ElseKw
   stmt <- parseStmt
   pure (Just stmt)
+
+parseWhile :: Parser Stmt
+parseWhile = do
+  expect $ Keyword WhileKw
+  expect OpenParen
+  cond <- parseExpr
+  expect CloseParen
+  body <- parseStmt
+  pure (While cond body)

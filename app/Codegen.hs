@@ -70,16 +70,30 @@ codegenStmt table labelCount stmt = case stmt of
               "  ldr x0, [sp], 16",
               "  cmp x0, #0      ; if condition false (== 0), jump to end/else (skip if stmt)",
               case elseStmt of
-                Nothing -> "  beq end_" ++ show labelCount
+                Nothing -> "  beq endif_" ++ show labelCount
                 Just _ -> "  beq else_" ++ show labelCount,
               thenCode, -- ignore symbol table, right?
-              "  b end_" ++ show labelCount, -- skip past ElseStmt (redundant when there's no else branch)
+              "  b endif_" ++ show labelCount, -- skip past ElseStmt (redundant when there's no else branch)
               case elseStmt of
                 Nothing -> ""
                 Just _ -> "else_" ++ show labelCount ++ ":\n" ++ elseCode,
-              "end_" ++ show labelCount ++ ":"
+              "endif_" ++ show labelCount ++ ":"
             ]
      in (code, table, labelCount'')
+  While cond body ->
+    let (bodyCode, _, labelCount') = codegenStmt table (labelCount + 1) body
+        code =
+          unlines
+            [ "while_" ++ show labelCount ++ ":",
+              codegenExpr table cond, -- eval cond
+              "  ldr x0, [sp], 16", -- x0 <- condition expr result
+              "  cmp x0, #0", -- compare x0 t0 0
+              "  beq endwhile_" ++ show labelCount, -- if false, exit loop
+              bodyCode,
+              "  b while_" ++ show labelCount, -- continue loop
+              "endwhile_" ++ show labelCount ++ ":"
+            ]
+     in (code, table, labelCount')
   _ -> error "Unsupported statement"
 
 codegenStmts :: SymTable -> LabelCount -> [Stmt] -> (String, LabelCount)

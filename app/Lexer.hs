@@ -32,4 +32,5 @@ wordToToken word = case word of
   "print" -> Keyword PrintKw
   "if" -> Keyword IfKw
   "else" -> Keyword ElseKw
+  "while" -> Keyword WhileKw
   _ -> Identifier word

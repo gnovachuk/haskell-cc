@@ -17,4 +17,5 @@ data Stmt
   | Print Expr
   | Block [Stmt]
   | If Expr Stmt (Maybe Stmt)
+  | While Expr Stmt
   deriving (Show)
