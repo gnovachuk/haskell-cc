@@ -237,6 +237,7 @@ codegenExpr expr = case expr of
           "  ldr x0, [sp]", -- peek top of stack (without popping result of rhs)
           "  str x0, [x29, #-" ++ show (offset * 16) ++ "]"
         ]
+  _ -> error $ "Unsupported expression: " ++ show expr
 
 exprToLValue :: Expr -> String -- Temporary helper that extracts lvalue
 exprToLValue (VarExpr name) = name -- Should be done in semantic analysis stage

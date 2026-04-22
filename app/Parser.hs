@@ -106,13 +106,35 @@ parseTerm = do
 
 parseFactor :: Parser Expr
 parseFactor = do
-  lhs <- parsePrimary
+  lhs <- parseCall
   ( do
       op <- parseMulOp
       rhs <- parseFactor
       pure (BinOp op lhs rhs)
     )
     `orElse` pure lhs
+
+parseCall :: Parser Expr
+parseCall = do
+  callable <- parsePrimary
+  ( do
+      expect OpenParen
+      args <-
+        ( do
+            first <- parseExpr
+            rest <-
+              many
+                ( do
+                    expect Comma
+                    parseExpr
+                )
+            pure (first : rest)
+          )
+          `orElse` pure []
+      expect CloseParen
+      pure (Call callable args)
+    )
+    `orElse` pure callable
 
 parsePrimary :: Parser Expr
 parsePrimary = parseLiteral `orElse` parseVarExpr
@@ -213,3 +235,34 @@ parseWhile = do
   expect CloseParen
   body <- parseStmt
   pure (While cond body)
+
+parseDecl :: Parser Decl
+parseDecl = parseFuncDecl
+
+parseFuncDecl :: Parser Decl
+parseFuncDecl = do
+  expect $ Keyword VoidKw
+  funcIdent <- satisfy (\case Identifier id -> Just id; _ -> Nothing)
+  expect OpenParen
+
+  params <-
+    ( do
+        first <- parseParam
+        rest <- many parseCommaParam
+        pure (first : rest)
+      )
+      `orElse` pure []
+
+  expect CloseParen
+  body <- parseBlock
+  pure $ FuncDecl funcIdent params body
+
+parseParam :: Parser String
+parseParam = do
+  expect $ Keyword IntKw
+  satisfy (\case Identifier id -> Just id; _ -> Nothing)
+
+parseCommaParam :: Parser String
+parseCommaParam = do
+  expect Comma
+  parseParam

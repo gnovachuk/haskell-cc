@@ -10,6 +10,7 @@ data Keyword
   | WhileKw
   | BreakKw
   | ContinueKw
+  | VoidKw
   deriving (Show, Eq)
 
 data Token where
@@ -17,6 +18,7 @@ data Token where
   Keyword :: Keyword -> Token
   Identifier :: String -> Token
   -- Operators
+  Comma :: Token
   Plus :: Token
   Minus :: Token
   Multiply :: Token

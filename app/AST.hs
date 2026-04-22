@@ -1,4 +1,4 @@
-module AST (Expr (..), Stmt (..), Op (..)) where
+module AST (Expr (..), Stmt (..), Decl (..), Op (..)) where
 
 data Op
   = Add
@@ -11,6 +11,7 @@ data Expr
   | VarExpr String
   | BinOp Op Expr Expr
   | Assign Expr Expr
+  | Call Expr [Expr]
   deriving (Show)
 
 data Stmt
@@ -23,3 +24,6 @@ data Stmt
   | If Expr Stmt (Maybe Stmt)
   | While Expr Stmt
   deriving (Show)
+
+data Decl
+  = FuncDecl String [String] Stmt

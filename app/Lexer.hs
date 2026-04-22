@@ -16,6 +16,7 @@ lexer input =
       ')' -> (CloseParen :) <$> lexer rest
       '{' -> (OpenBrace :) <$> lexer rest
       '}' -> (CloseBrace :) <$> lexer rest
+      ',' -> (Comma :) <$> lexer rest
       _
         | isDigit ch ->
             let (digits, rest') = span isDigit input
@@ -36,4 +37,5 @@ wordToToken word = case word of
   "while" -> Keyword WhileKw
   "break" -> Keyword BreakKw
   "continue" -> Keyword ContinueKw
+  "void" -> Keyword VoidKw
   _ -> Identifier word
