@@ -2,7 +2,7 @@
 
 {- HLINT ignore "Use <$>" -}
 
-module Parser (Parser (..), parseStmt) where
+module Parser (Parser (..), parseProgram) where
 
 import AST
 import Token
@@ -236,12 +236,15 @@ parseWhile = do
   body <- parseStmt
   pure (While cond body)
 
+parseProgram :: Parser [Decl]
+parseProgram = many parseDecl
+
 parseDecl :: Parser Decl
 parseDecl = parseFuncDecl
 
 parseFuncDecl :: Parser Decl
 parseFuncDecl = do
-  expect $ Keyword VoidKw
+  expect $ Keyword IntKw
   funcIdent <- satisfy (\case Identifier id -> Just id; _ -> Nothing)
   expect OpenParen
 

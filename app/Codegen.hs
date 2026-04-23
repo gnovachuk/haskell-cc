@@ -1,5 +1,7 @@
 {-# LANGUAGE InstanceSigs #-}
 
+{- HLINT ignore "Use if" -}
+
 {- HLINT ignore "Use const" -}
 {- HLINT ignore "Use tuple-section" -}
 
@@ -16,7 +18,8 @@ type CurrentLoop = Maybe Int
 data CodegenState = CodegenState
   { symTable :: SymTable,
     labelCount :: LabelCount,
-    currentLoop :: CurrentLoop
+    currentLoop :: CurrentLoop,
+    funcTable :: [String]
   }
 
 newtype State s a = State {runState :: s -> (a, s)}
@@ -56,9 +59,9 @@ modify f = State (\st -> ((), f st))
 evalState :: State s a -> s -> a
 evalState sa st = fst (runState sa st)
 
-emitProgram :: Stmt -> String
-emitProgram stmt =
-  let initState = CodegenState {symTable = [], labelCount = 0, currentLoop = Nothing}
+emitProgram :: [Decl] -> String
+emitProgram decls =
+  let initState = CodegenState {symTable = [], labelCount = 0, currentLoop = Nothing, funcTable = []}
    in unlines
         [ ".data",
           "fmt:",
@@ -67,20 +70,61 @@ emitProgram stmt =
           ".text",
           ".global _main ; tell the linker `_main` exists and is visible",
           ".align 2      ; align code to 4-byte boundary (ARM64 requirement)",
-          "_main:        ; the entry point label",
-          "  ; x29 = frame pointer (like rbp on x86)",
-          "  ; x30 = link register (return addr after function ends)",
-          "  stp x29, x30, [sp, -16]!    ; push old frame and link register onto stack",
-          "  mov x29, sp                 ; x29 -> base of stack frame"
+          evalState (codegenProgram decls) initState
         ]
-        ++ evalState (codegenStmt stmt) initState
-        ++ unlines
-          [ "; exit cleanly",
-            "  ldp x29, x30, [sp], 16    ; restore frame & link register",
-            "  mov x0,  #0  ; exit code 0",
-            "  mov x16, #1  ; syscall number for exit on macOS", -- exit syscall
-            "  svc #0x80    ; make the syscall"
-          ]
+
+codegenProgram :: [Decl] -> State CodegenState String
+codegenProgram [] = pure ""
+codegenProgram (decl : rest) = do
+  code <- codegenDecl decl
+  restCode <- codegenProgram rest
+  pure $ code ++ "\n" ++ restCode
+
+codegenDecl :: Decl -> State CodegenState String
+codegenDecl decl = case decl of
+  FuncDecl name params body -> do
+    modify (\s -> s {funcTable = name : funcTable s})
+    prevState <- get
+    modify (\s -> s {symTable = [], currentLoop = Nothing}) -- reset symTable and currentLoop for function scope
+    paramCode <- codegenParamLoad params
+    bodyCode <- codegenStmt body
+    newLc <- labelCount <$> get -- labelCount should persist between declarations
+    put prevState {labelCount = newLc}
+    -- x29 = frame pointer (like rbp on x86)
+    -- x30 = link register (return addr after function ends)
+    pure $
+      unlines
+        [ case name of
+            "main" -> "_main: "
+            _ -> "func_" ++ name ++ ":",
+          "  stp x29, x30, [sp, -16]!    ; push old frame and link register onto stack",
+          "  mov x29, sp                 ; x29 -> base of stack frame",
+          "  ; copy args from registers to stack frame",
+          paramCode, -- TODO: when there are more than 8 params, rest should be loaded from stack
+          "  sub sp, sp, #" ++ show (length params * 16),
+          bodyCode,
+          "  mov sp, x29", -- deallocate locals, sp back to saved x29/x30
+          "  ldp x29, x30, [sp], 16    ; restore frame & link register",
+          "  mov x0, #69", -- test return value of 69
+          case name of
+            "main" ->
+              unlines -- note x0, (ret value) contains exit code used for syscall;
+                [ "  mov x16, #1  ; syscall number for exit on macOS", -- exit syscall
+                  "  svc #0x80    ; make the syscall"
+                ]
+            _ -> "  ret"
+        ]
+
+codegenParamLoad :: [String] -> State CodegenState String
+codegenParamLoad [] = pure ""
+codegenParamLoad (param : rest) = do
+  st <- get
+  let offset = 1 + length (symTable st)
+  modify (\s -> s {symTable = (param, offset) : symTable s})
+  -- offset 1 corresponds to first arg (stored in x0), thus, (offset - 1) is used for register number.
+  let code = "  str x" ++ show (offset - 1) ++ ", [x29, #-" ++ show (16 * offset) ++ "]  ; load onto stack: " ++ param
+  restCode <- codegenParamLoad rest
+  pure (code ++ restCode)
 
 codegenStmt :: Stmt -> State CodegenState String
 codegenStmt stmt = case stmt of
@@ -99,7 +143,7 @@ codegenStmt stmt = case stmt of
     st <- get
     exprCode <- codegenExpr expr
     let offset = 1 + length (symTable st)
-    modify (\st -> st {symTable = (name, offset) : symTable st})
+    modify (\s -> s {symTable = (name, offset) : symTable s})
     pure $
       unlines
         [ exprCode,
@@ -202,15 +246,27 @@ codegenExpr expr = case expr of
         ]
   VarExpr name -> do
     st <- get
-    let table = symTable st
-    let offset = case lookup name table of
-          Just o -> o
-          Nothing -> error $ "Variable not found: " ++ name
-    pure $
-      unlines
-        [ "  ldr x0, [x29, #-" ++ show (offset * 16) ++ "]",
-          "  str x0, [sp, -16]!"
-        ]
+    case name `elem` funcTable st of
+      True -> do
+        let funcName = case name of
+              "main" -> "_main"
+              _ -> "func_" ++ name
+        -- if function, emit func addr on stack
+        pure $
+          unlines
+            [ "  adrp x16, " ++ funcName ++ "@PAGE",
+              "  add x16, x16, " ++ funcName ++ "@PAGEOFF",
+              "  str x16, [sp, -16]!"
+            ]
+      False -> do
+        let offset = case lookup name (symTable st) of
+              Just o -> o
+              Nothing -> error $ "Variable not found: " ++ name
+        pure $
+          unlines
+            [ "  ldr x0, [x29, #-" ++ show (offset * 16) ++ "]",
+              "  str x0, [sp, -16]!"
+            ]
   BinOp op e1 e2 -> do
     lhsCode <- codegenExpr e1
     rhsCode <- codegenExpr e2
@@ -237,7 +293,33 @@ codegenExpr expr = case expr of
           "  ldr x0, [sp]", -- peek top of stack (without popping result of rhs)
           "  str x0, [x29, #-" ++ show (offset * 16) ++ "]"
         ]
-  _ -> error $ "Unsupported expression: " ++ show expr
+  Call func args -> do
+    argLoadCode <- codegenArgLoad (length args)
+    funcCode <- codegenExpr func
+    argsCode <- mapM codegenExpr args
+    pure $
+      unlines
+        [ unlines argsCode,
+          funcCode,
+          "  ldr x16, [sp], 16", -- load func addr into x16
+          argLoadCode, -- load args into x0..x(argCount-1) (fails if more than 8 args)
+          "  blr x16", -- branch & link (stores ret addr into x30)
+          "  str x0, [sp, -16]!" -- retrieve ret value (produced from func) and push onto stack
+        ]
+
+-- Pops argCount values off the stack into x0..x(argCount-1).
+-- The top of stack is the last arg, so we pop from the highest register down to x0.
+codegenArgLoad :: Int -> State CodegenState String
+codegenArgLoad 0 = pure ""
+codegenArgLoad argCount = do
+  -- Pop the top of stack (the last-pushed arg) into the highest register first
+  let regNum = argCount - 1
+  restCode <- codegenArgLoad regNum
+  pure $
+    unlines
+      [ "  ldr x" ++ show regNum ++ ", [sp], 16",
+        restCode
+      ]
 
 exprToLValue :: Expr -> String -- Temporary helper that extracts lvalue
 exprToLValue (VarExpr name) = name -- Should be done in semantic analysis stage
@@ -247,6 +329,3 @@ opToInstr :: Op -> String
 opToInstr Add = "add"
 opToInstr Sub = "sub"
 opToInstr Mul = "mul"
-
-fst3 :: (a, b, c) -> a
-fst3 (x, _, _) = x
