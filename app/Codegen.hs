@@ -19,7 +19,8 @@ data CodegenState = CodegenState
   { symTable :: SymTable,
     labelCount :: LabelCount,
     currentLoop :: CurrentLoop,
-    funcTable :: [String]
+    funcTable :: [String],
+    currentFunc :: Maybe String
   }
 
 newtype State s a = State {runState :: s -> (a, s)}
@@ -61,7 +62,7 @@ evalState sa st = fst (runState sa st)
 
 emitProgram :: [Decl] -> String
 emitProgram decls =
-  let initState = CodegenState {symTable = [], labelCount = 0, currentLoop = Nothing, funcTable = []}
+  let initState = CodegenState {symTable = [], labelCount = 0, currentLoop = Nothing, funcTable = [], currentFunc = Nothing}
    in unlines
         [ ".data",
           "fmt:",
@@ -83,11 +84,12 @@ codegenProgram (decl : rest) = do
 codegenDecl :: Decl -> State CodegenState String
 codegenDecl decl = case decl of
   FuncDecl name params body -> do
-    modify (\s -> s {funcTable = name : funcTable s})
+    modify (\s -> s {funcTable = name : funcTable s, currentFunc = Just name})
     prevState <- get
     modify (\s -> s {symTable = [], currentLoop = Nothing}) -- reset symTable and currentLoop for function scope
     paramCode <- codegenParamLoad params
     bodyCode <- codegenStmt body
+    exitCode <- codegenFuncExit name
     newLc <- labelCount <$> get -- labelCount should persist between declarations
     put prevState {labelCount = newLc}
     -- x29 = frame pointer (like rbp on x86)
@@ -103,17 +105,25 @@ codegenDecl decl = case decl of
           paramCode, -- TODO: when there are more than 8 params, rest should be loaded from stack
           "  sub sp, sp, #" ++ show (length params * 16),
           bodyCode,
-          "  mov sp, x29", -- deallocate locals, sp back to saved x29/x30
-          "  ldp x29, x30, [sp], 16    ; restore frame & link register",
           "  mov x0, #69", -- test return value of 69
-          case name of
-            "main" ->
-              unlines -- note x0, (ret value) contains exit code used for syscall;
-                [ "  mov x16, #1  ; syscall number for exit on macOS", -- exit syscall
-                  "  svc #0x80    ; make the syscall"
-                ]
-            _ -> "  ret"
+          exitCode
         ]
+
+codegenFuncExit :: String -> State CodegenState String
+codegenFuncExit funcName = do
+  let exitCode = case funcName of
+        "main" ->
+          unlines -- note x0, (ret value) contains exit code used for syscall;
+            [ "  mov x16, #1  ; syscall number for exit on macOS", -- exit syscall
+              "  svc #0x80    ; make the syscall"
+            ]
+        _ -> "  ret"
+  pure $
+    unlines
+      [ "  mov sp, x29", -- deallocate locals, sp back to saved x29/x30
+        "  ldp x29, x30, [sp], 16    ; restore frame & link register",
+        exitCode
+      ]
 
 codegenParamLoad :: [String] -> State CodegenState String
 codegenParamLoad [] = pure ""
@@ -227,6 +237,21 @@ codegenStmt stmt = case stmt of
       unlines
         [ exprCode,
           "  add sp, sp, 16    ; cleanup stack (pop expr result)"
+        ]
+  Return expr -> do
+    st <- get
+    exprCode <- codegenExpr expr
+    exitCode <-
+      codegenFuncExit
+        ( case currentFunc st of
+            Just funcName -> funcName
+            Nothing -> error "return outside of function"
+        )
+    pure $
+      unlines
+        [ exprCode,
+          "  ldr x0, [sp], 16  ; load return value into x0",
+          exitCode
         ]
 
 codegenStmts :: [Stmt] -> State CodegenState String

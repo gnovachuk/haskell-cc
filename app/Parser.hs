@@ -162,6 +162,7 @@ parseMulOp =
 parseStmt :: Parser Stmt
 parseStmt =
   parseVarDecl
+    `orElse` parseReturn
     `orElse` parseBreak
     `orElse` parseContinue
     `orElse` parsePrint
@@ -181,6 +182,13 @@ parseContinue = do
   expect $ Keyword ContinueKw
   expect Semicolon
   pure Continue
+
+parseReturn :: Parser Stmt
+parseReturn = do
+  expect $ Keyword ReturnKw
+  expr <- parseExpr
+  expect Semicolon
+  pure (Return expr)
 
 parseExprStmt :: Parser Stmt
 parseExprStmt = do

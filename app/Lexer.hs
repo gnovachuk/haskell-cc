@@ -38,4 +38,5 @@ wordToToken word = case word of
   "break" -> Keyword BreakKw
   "continue" -> Keyword ContinueKw
   "void" -> Keyword VoidKw
+  "return" -> Keyword ReturnKw
   _ -> Identifier word

@@ -11,6 +11,7 @@ data Keyword
   | BreakKw
   | ContinueKw
   | VoidKw
+  | ReturnKw
   deriving (Show, Eq)
 
 data Token where

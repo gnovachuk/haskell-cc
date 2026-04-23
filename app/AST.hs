@@ -17,6 +17,7 @@ data Expr
 data Stmt
   = Break
   | Continue
+  | Return Expr
   | VarDecl String Expr
   | ExprStmt Expr
   | Print Expr
