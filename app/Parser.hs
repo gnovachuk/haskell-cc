@@ -63,9 +63,6 @@ satisfy f =
           Nothing -> Left ("Unexpected token" ++ show t)
     )
 
-anyToken :: Parser Token
-anyToken = satisfy Just
-
 orElse :: Parser a -> Parser a -> Parser a
 orElse p1 p2 =
   Parser
@@ -74,9 +71,6 @@ orElse p1 p2 =
           Left _ -> runParser p2 tokens
           right -> right
     )
-
-failParser :: String -> Parser a
-failParser msg = Parser (\_ -> Left msg)
 
 parseLiteral :: Parser Expr
 parseLiteral = LitExpr <$> satisfy (\case Literal n -> Just n; _ -> Nothing)
@@ -245,7 +239,19 @@ parseWhile = do
   pure (While cond body)
 
 parseProgram :: Parser [Decl]
-parseProgram = many parseDecl
+parseProgram = do
+  decls <- many parseDecl
+  parseEof
+  pure decls
+
+parseEof :: Parser ()
+parseEof =
+  Parser
+    ( \tokens ->
+        case tokens of
+          [] -> Right ((), [])
+          (t : _) -> Left ("Unexpected tokens after program: " ++ show t)
+    )
 
 parseDecl :: Parser Decl
 parseDecl = parseFuncDecl

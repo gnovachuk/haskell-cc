@@ -1,2 +1,9 @@
-./compile
+#!/bin/bash
+
+set -e # exit immediately if any command fails
+
+if ! ./compile; then
+  exit 1
+fi
+
 ./program.out

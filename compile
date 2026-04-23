@@ -1,9 +1,13 @@
 #!/bin/bash
+set -e # exit immediately if any command fails
 
 if [ "$1" = "--link" ]; then
     echo "Skipping compilation..."
 else
-    cabal run haskell-cc -- test.c
+    if ! cabal run haskell-cc -- test.c; then
+        echo "Compilation failed"
+        exit 1
+    fi
 fi
 
 as -o output.o output.asm

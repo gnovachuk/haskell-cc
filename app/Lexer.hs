@@ -25,7 +25,7 @@ lexer input =
             let (word, rest') = span isAlphaNum input
              in (wordToToken word :) <$> lexer rest'
         | isSpace ch -> lexer rest
-        | otherwise -> Left ("[lexer] unexpected character: `" ++ [ch] ++ "`")
+        | otherwise -> Left ("unexpected character: `" ++ [ch] ++ "`")
     [] -> Right []
 
 wordToToken :: String -> Token
