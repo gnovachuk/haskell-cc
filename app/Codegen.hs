@@ -132,7 +132,7 @@ codegenParamLoad (param : rest) = do
   let offset = 1 + length (symTable st)
   modify (\s -> s {symTable = (param, offset) : symTable s})
   -- offset 1 corresponds to first arg (stored in x0), thus, (offset - 1) is used for register number.
-  let code = "  str x" ++ show (offset - 1) ++ ", [x29, #-" ++ show (16 * offset) ++ "]  ; load onto stack: " ++ param
+  let code = "  str x" ++ show (offset - 1) ++ ", [x29, #-" ++ show (16 * offset) ++ "]  ; load onto stack: " ++ param ++ "\n"
   restCode <- codegenParamLoad rest
   pure (code ++ restCode)
 

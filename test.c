@@ -1,7 +1,8 @@
-int foo(int a) {
-    return a * 2;
+int add(int a, int b) {
+    return a + b;
 }
 
 int main() {
-    print foo(5);
+    print add(5, 2);
+    return 0;
 }
