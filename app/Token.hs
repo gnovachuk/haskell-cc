@@ -20,25 +20,74 @@ data Keyword
   | IfKw
   | ElseKw
   | WhileKw
+  | ForKw
+  | DoKw
+  | SwitchKw
+  | CaseKw
+  | DefaultKw
   | BreakKw
   | ContinueKw
   | VoidKw
   | ReturnKw
+  | SizeofKw
   deriving (Show, Eq)
 
-data Token where
-  Literal :: Int -> Token
-  Keyword :: Keyword -> Token
-  Identifier :: String -> Token
-  -- Operators
-  Comma :: Token
-  Plus :: Token
-  Minus :: Token
-  Multiply :: Token
-  Equal :: Token
-  Semicolon :: Token
-  OpenParen :: Token
-  CloseParen :: Token
-  OpenBrace :: Token
-  CloseBrace :: Token
+data Token
+  = Literal Int
+  | Keyword Keyword
+  | Identifier String
+  | -- Punctuation
+    Comma
+  | Semicolon
+  | Colon
+  | Question
+  | OpenParen
+  | CloseParen
+  | OpenBrace
+  | CloseBrace
+  | OpenBracket
+  | CloseBracket
+  | Dot
+  | Arrow
+  | -- Arithmetic
+    Plus
+  | Minus
+  | Multiply
+  | Divide
+  | Modulus
+  | Increment
+  | Decrement
+  | -- Assignment
+    Equal
+  | PlusEqual
+  | MinusEqual
+  | MultiplyEqual
+  | -- \*=
+    DivideEqual
+  | ModulusEqual
+  | AmpersandEqual
+  | PipeEqual
+  | -- | =
+    CaretEqual
+  | -- \^=
+    ShiftLeftEqual
+  | ShiftRightEqual
+  | -- Comparison
+    EqualEqual
+  | NotEqual
+  | Less
+  | Greater
+  | LessEqual
+  | GreaterEqual
+  | -- Logical
+    And
+  | Or
+  | Bang
+  | -- Bitwise
+    Ampersand
+  | Pipe
+  | Caret
+  | Tilde
+  | ShiftLeft
+  | ShiftRight
   deriving (Show, Eq)
