@@ -2,26 +2,42 @@
 
 {- HLINT ignore "Use <$>" -}
 
-module Parser (Parser (..), parseProgram) where
+module Parser (Parser (..), parseProgram, Result (..)) where
 
 import AST
 import Token
 
-newtype Parser a = Parser {runParser :: [Token] -> Either String (a, [Token])}
+data Result a
+  = Ok a [Token]
+  | SoftErr String -- parser failed, no tokens consumed
+  | HardErr String -- parser failed, tokens were consumed
+
+newtype Parser a = Parser {runParser :: [Token] -> Result a}
+
+instance Functor Result where
+  fmap f (Ok a rest) = Ok (f a) rest
+  fmap _ (SoftErr msg) = SoftErr msg
+  fmap _ (HardErr msg) = HardErr msg
 
 instance Functor Parser where
   fmap f p =
-    Parser (\tokens -> fmap (\(a, rest) -> (f a, rest)) (runParser p tokens))
+    Parser (fmap f . runParser p)
 
 instance Applicative Parser where
   -- pure :: a -> Parser a
-  pure a = Parser (\tokens -> Right (a, tokens))
+  pure a = Parser (Ok a)
   pf <*> pa =
     Parser
       ( \tokens -> do
-          (f, rest) <- runParser pf tokens
-          (a, rest') <- runParser pa rest
-          Right (f a, rest')
+          case runParser pf tokens of
+            SoftErr msg -> SoftErr msg
+            HardErr msg -> HardErr msg
+            Ok f rest ->
+              case runParser pa rest of
+                Ok a rest' -> Ok (f a) rest'
+                SoftErr msg | rest /= tokens -> HardErr msg -- turn into hard error if tokens were consumed
+                HardErr msg -> HardErr msg
+                SoftErr msg -> SoftErr msg
       )
 
 instance Monad Parser where
@@ -29,8 +45,12 @@ instance Monad Parser where
     Parser
       ( \tokens ->
           case runParser p tokens of
-            Left msg -> Left msg
-            Right (a, rest) -> runParser (f a) rest
+            HardErr msg -> HardErr msg
+            SoftErr msg -> SoftErr msg
+            Ok a rest ->
+              case runParser (f a) rest of
+                SoftErr msg | rest /= tokens -> HardErr msg -- turn into hard error if tokens were consumed
+                result -> result
       )
 
 many :: Parser a -> Parser [a]
@@ -46,21 +66,21 @@ expect :: Token -> Parser ()
 expect t =
   Parser
     ( \case
-        [] -> Left ("expected token " ++ show t)
+        [] -> SoftErr ("expected token " ++ show t)
         (t' : rest) ->
           if t' == t
-            then Right ((), rest)
-            else Left ("expected token " ++ show t)
+            then Ok () rest
+            else SoftErr ("expected token " ++ show t)
     )
 
 satisfy :: (Token -> Maybe a) -> Parser a
 satisfy f =
   Parser
     ( \case
-        [] -> Left "Unexpected end of input"
+        [] -> SoftErr "Unexpected end of input"
         (t : rest) -> case f t of
-          Just a -> Right (a, rest)
-          Nothing -> Left ("Unexpected token" ++ show t)
+          Just a -> Ok a rest
+          Nothing -> SoftErr ("Unexpected token" ++ show t)
     )
 
 orElse :: Parser a -> Parser a -> Parser a
@@ -68,8 +88,9 @@ orElse p1 p2 =
   Parser
     ( \tokens ->
         case runParser p1 tokens of
-          Left _ -> runParser p2 tokens
-          right -> right
+          Ok a rest -> Ok a rest
+          SoftErr _ -> runParser p2 tokens -- didn't consume, try other parser, p2.
+          HardErr msg -> HardErr msg -- consumed, give up.
     )
 
 parseLiteral :: Parser Expr
@@ -249,8 +270,8 @@ parseEof =
   Parser
     ( \tokens ->
         case tokens of
-          [] -> Right ((), [])
-          (t : _) -> Left ("Unexpected tokens after program: " ++ show t)
+          [] -> Ok () []
+          (t : _) -> HardErr ("Unexpected tokens after program: " ++ show t)
     )
 
 parseDecl :: Parser Decl

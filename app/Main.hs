@@ -14,7 +14,8 @@ main = do
   case tokens of
     Left err -> do putStrLn ("[lexer]: " ++ err); exitFailure
     Right ts -> case runParser parseProgram ts of
-      Left err -> do putStrLn ("[parser]: " ++ err); exitFailure
-      Right (program, _) -> writeFile "output.asm" (emitProgram program)
+      SoftErr err -> do putStrLn ("[parser]: " ++ err); exitFailure
+      HardErr err -> do putStrLn ("[parser]: " ++ err); exitFailure
+      Ok program _ -> writeFile "output.asm" (emitProgram program)
 
 -- Right (stmt, _) -> print stmt
