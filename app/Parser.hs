@@ -80,7 +80,7 @@ satisfy f =
         [] -> SoftErr "Unexpected end of input" Nothing
         (t : rest) -> case f (unLoc t) of
           Just a -> Ok a rest
-          Nothing -> SoftErr ("Unexpected token" ++ show (unLoc t)) (Just (locPos t))
+          Nothing -> SoftErr ("Unexpected token " ++ show (unLoc t)) (Just (locPos t))
     )
 
 (<?>) :: Parser a -> String -> Parser a -- relabel SoftErr
