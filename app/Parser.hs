@@ -83,6 +83,18 @@ satisfy f =
           Nothing -> SoftErr ("Unexpected token" ++ show t)
     )
 
+(<?>) :: Parser a -> String -> Parser a -- relabel SoftErr
+p <?> msg =
+  Parser
+    ( \tokens -> case runParser p tokens of
+        SoftErr _ -> SoftErr msg
+        other -> other
+    )
+
+infixl 3 `orElse`
+
+infix 0 <?>
+
 orElse :: Parser a -> Parser a -> Parser a
 orElse p1 p2 =
   Parser
@@ -237,7 +249,7 @@ parseBlock = do
 parseIf :: Parser Stmt
 parseIf = do
   expect $ Keyword IfKw
-  expect OpenParen
+  expect OpenParen <?> "expected `(` after if"
   cond <- parseExpr
   expect CloseParen
   body <- parseStmt
