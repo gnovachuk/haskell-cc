@@ -1,21 +1,26 @@
 module Main where
 
 import Codegen
+import ErrFmt (formatError)
 import Lexer
 import Parser
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
+import System.IO (hPutStr, stderr)
 
 main :: IO ()
 main = do
   [filePath] <- getArgs
   contents <- readFile filePath
-  let tokens = lexer contents
-  case tokens of
-    Left err -> do putStrLn ("[lexer]: " ++ err); exitFailure
+  case lexer contents of
+    Left err -> do
+      hPutStr stderr (formatError filePath contents ("[lexer] " ++ err) Nothing)
+      exitFailure
     Right ts -> case runParser parseProgram ts of
-      SoftErr err -> do putStrLn ("[parser]: " ++ err); exitFailure
-      HardErr err -> do putStrLn ("[parser]: " ++ err); exitFailure
+      SoftErr msg pos -> reportErr filePath contents msg pos
+      HardErr msg pos -> reportErr filePath contents msg pos
       Ok program _ -> writeFile "output.asm" (emitProgram program)
-
--- Right (stmt, _) -> print stmt
+  where
+    reportErr path src msg pos = do
+      hPutStr stderr (formatError path src msg pos)
+      exitFailure

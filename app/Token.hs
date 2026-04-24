@@ -1,6 +1,18 @@
 {-# LANGUAGE GADTs #-}
 
-module Token (Token (..), Keyword (..)) where
+module Token (Located (..), SourcePos (..), Token (..), Keyword (..)) where
+
+data SourcePos = SourcePos
+  { line :: Int,
+    col :: Int
+  }
+  deriving (Show, Eq)
+
+data Located a = Located
+  { unLoc :: a,
+    locPos :: SourcePos
+  }
+  deriving (Show, Eq)
 
 data Keyword
   = IntKw

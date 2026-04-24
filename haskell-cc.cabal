@@ -68,6 +68,7 @@ executable haskell-cc
         Parser
         AST
         Codegen
+        ErrFmt
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
