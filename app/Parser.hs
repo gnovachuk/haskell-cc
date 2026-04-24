@@ -108,18 +108,46 @@ orElse p1 p2 =
 parseLiteral :: Parser Expr
 parseLiteral = LitExpr <$> satisfy (\case Literal n -> Just n; _ -> Nothing)
 
+chainL1 :: Parser Expr -> Parser Op -> Parser Expr
+chainL1 pOperand pOp = do
+  lhs <- pOperand
+  rest lhs
+  where
+    rest lhs =
+      ( do
+          op <- pOp
+          rhs <- pOperand
+          rest (BinOp op lhs rhs) -- recursive call with accumulated left operand.
+      )
+        `orElse` pure lhs
+
 parseExpr :: Parser Expr
-parseExpr = parseAssign
+parseExpr = parseComma
+
+parseComma :: Parser Expr
+parseComma = chainL1 parseAssign (do expect Comma; pure CommaOp)
 
 parseAssign :: Parser Expr
 parseAssign = do
-  lhs <- parseTerm
+  lhs <- parseTernary
   ( do
       expect Equal
       rhs <- parseAssign -- right associative
       pure (Assign lhs rhs)
     )
     `orElse` pure lhs
+
+parseTernary :: Parser Expr
+parseTernary = do
+  cond <- parseTerm
+  ( do
+      expect Question
+      thenExpr <- parseExpr
+      expect Colon
+      elseExpr <- parseTernary
+      pure (TernaryOp cond thenExpr elseExpr)
+    )
+    `orElse` pure cond
 
 parseTerm :: Parser Expr
 parseTerm = do

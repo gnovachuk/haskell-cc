@@ -301,7 +301,7 @@ codegenExpr expr = case expr of
           rhsCode,
           "  ldr x1, [sp], 16",
           "  ldr x0, [sp], 16",
-          "  " ++ opToInstr op ++ " x0, x0, x1",
+          opToInstr op,
           "  str x0, [sp, -16]!"
         ]
   Assign lhs rhs -> do
@@ -331,6 +331,24 @@ codegenExpr expr = case expr of
           "  blr x16", -- branch & link (stores ret addr into x30)
           "  str x0, [sp, -16]!" -- retrieve ret value (produced from func) and push onto stack
         ]
+  TernaryOp cond thenExpr elseExpr -> do
+    st <- get
+    let lc = labelCount st
+    modify (\s -> s {labelCount = labelCount st + 1}) -- increment labelCount
+    condCode <- codegenExpr cond
+    thenCode <- codegenExpr thenExpr
+    elseCode <- codegenExpr elseExpr
+    pure $
+      unlines
+        [ condCode,
+          "  ldr x0, [sp], 16",
+          "  cbz x0, ternaryelse_" ++ show lc ++ "  ; compare and branch on x0=zero",
+          thenCode,
+          "  b ternaryend_" ++ show lc,
+          "ternaryelse_" ++ show lc ++ ":",
+          elseCode,
+          "ternaryend_" ++ show lc ++ ": "
+        ]
 
 -- Pops argCount values off the stack into x0..x(argCount-1).
 -- The top of stack is the last arg, so we pop from the highest register down to x0.
@@ -351,6 +369,7 @@ exprToLValue (VarExpr name) = name -- Should be done in semantic analysis stage
 exprToLValue e = error $ "Invalid lvalue: " ++ show e
 
 opToInstr :: Op -> String
-opToInstr Add = "add"
-opToInstr Sub = "sub"
-opToInstr Mul = "mul"
+opToInstr Add = "  add x0, x0, x1"
+opToInstr Sub = "  sub x0, x0, x1"
+opToInstr Mul = "  mul x0, x0, x1"
+opToInstr CommaOp = "  mov x0, x1" -- x0 gets pushed back onto stack after, so rhs will be pushed

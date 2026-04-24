@@ -1,6 +1,3 @@
 int main() {
-  int x = 0;
-  while (>x)
-  if (x) print 5;
-  return 257;
+    print 1, 2, 3, 4;
 }

@@ -4,12 +4,14 @@ data Op
   = Add
   | Sub
   | Mul
+  | CommaOp
   deriving (Show)
 
 data Expr
   = LitExpr Int
   | VarExpr String
   | BinOp Op Expr Expr
+  | TernaryOp Expr Expr Expr
   | Assign Expr Expr
   | Call Expr [Expr]
   deriving (Show)
