@@ -1,5 +1,5 @@
-int foo() {
-    print 69;
+int foo(int a, int b) {
+    print a + b;
 }
 
 int bar() {
@@ -7,5 +7,6 @@ int bar() {
 }
 
 int main() {
-  print foo() || bar();
+  print foo(34, 35) || bar();
+  return 0;
 }

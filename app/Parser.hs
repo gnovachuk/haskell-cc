@@ -194,7 +194,7 @@ parseCall = do
       expect OpenParen
       args <-
         ( do
-            first <- parseExpr
+            first <- parseAssign -- not parseExpr because it contains Comma operator (we don't want to parse here)
             rest <-
               many
                 ( do
