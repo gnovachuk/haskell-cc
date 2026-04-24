@@ -5,8 +5,6 @@ data Op
   | Sub
   | Mul
   | CommaOp
-  | LogicalOr
-  | LogicalAnd
   | EqualOp
   | NotEqualOp
   | GreaterOp
@@ -19,6 +17,8 @@ data Expr
   = LitExpr Int
   | VarExpr String
   | BinOp Op Expr Expr
+  | LogicalOr Expr Expr
+  | LogicalAnd Expr Expr
   | TernaryOp Expr Expr Expr
   | Assign Expr Expr
   | Call Expr [Expr]

@@ -1,8 +1,11 @@
+int foo() {
+    print 69;
+}
+
+int bar() {
+    print 420;
+}
+
 int main() {
-    int age = 18;
-    if (age <= 18) {
-        print 69;
-    } else {
-        print 420;
-    }
+  print foo() || bar();
 }

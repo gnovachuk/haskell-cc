@@ -150,10 +150,30 @@ parseTernary = do
     `orElse` pure cond
 
 parseLogicalOr :: Parser Expr
-parseLogicalOr = chainL1 parseLogicalAnd (do expect Or; pure LogicalOr)
+parseLogicalOr = do
+  lhs <- parseLogicalAnd
+  rest lhs
+  where
+    rest lhs =
+      ( do
+          expect Or
+          rhs <- parseLogicalAnd
+          rest (LogicalOr lhs rhs) -- recursive call with accumulated left operand.
+      )
+        `orElse` pure lhs
 
 parseLogicalAnd :: Parser Expr
-parseLogicalAnd = chainL1 parseEquality (do expect And; pure LogicalAnd)
+parseLogicalAnd = do
+  lhs <- parseEquality
+  rest lhs
+  where
+    rest lhs =
+      ( do
+          expect And
+          rhs <- parseEquality
+          rest (LogicalAnd lhs rhs) -- recursive call with accumulated left operand.
+      )
+        `orElse` pure lhs
 
 parseEquality :: Parser Expr
 parseEquality = chainL1 parseComparison parseEqualityOp
@@ -162,24 +182,10 @@ parseComparison :: Parser Expr
 parseComparison = chainL1 parseTerm parseComparisonOp
 
 parseTerm :: Parser Expr
-parseTerm = do
-  lhs <- parseFactor
-  ( do
-      op <- parseAddOp
-      rhs <- parseTerm
-      pure (BinOp op lhs rhs)
-    )
-    `orElse` pure lhs
+parseTerm = chainL1 parseFactor parseAddOp
 
 parseFactor :: Parser Expr
-parseFactor = do
-  lhs <- parseCall
-  ( do
-      op <- parseMulOp
-      rhs <- parseFactor
-      pure (BinOp op lhs rhs)
-    )
-    `orElse` pure lhs
+parseFactor = chainL1 parseCall parseMulOp
 
 parseCall :: Parser Expr
 parseCall = do

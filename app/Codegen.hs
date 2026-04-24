@@ -349,6 +349,48 @@ codegenExpr expr = case expr of
           elseCode,
           "ternaryend_" ++ show lc ++ ": "
         ]
+  LogicalOr lhs rhs -> do
+    st <- get
+    let lc = labelCount st
+    modify (\s -> s {labelCount = labelCount st + 1}) -- increment labelCount
+    lhsCode <- codegenExpr lhs
+    rhsCode <- codegenExpr rhs
+    pure $
+      unlines
+        [ lhsCode,
+          "  ldr x0, [sp], 16",
+          "  cbnz x0, or_true_" ++ show lc,
+          rhsCode,
+          "  ldr x0, [sp], 16",
+          "  cbnz x0, or_true_" ++ show lc,
+          "  mov x0, #0",
+          "  b or_end_" ++ show lc,
+          "or_true_" ++ show lc ++ ": ",
+          "  mov x0, #1  ; set x0 to 1 (true)",
+          "or_end_" ++ show lc ++ ": ",
+          "  str x0, [sp, -16]!"
+        ]
+  LogicalAnd lhs rhs -> do
+    st <- get
+    let lc = labelCount st
+    modify (\s -> s {labelCount = labelCount st + 1}) -- increment labelCount
+    lhsCode <- codegenExpr lhs
+    rhsCode <- codegenExpr rhs
+    pure $
+      unlines
+        [ lhsCode,
+          "  ldr x0, [sp], 16",
+          "  cbz x0, and_false_" ++ show lc,
+          rhsCode,
+          "  ldr x0, [sp], 16",
+          "  cbz x0, and_false_" ++ show lc,
+          "  mov x0, #1",
+          "  b and_end_" ++ show lc,
+          "and_false_" ++ show lc ++ ": ",
+          "  mov x0, #0  ; set x0 to 0 (false)",
+          "and_end_" ++ show lc ++ ": ",
+          "  str x0, [sp, -16]!"
+        ]
 
 -- Pops argCount values off the stack into x0..x(argCount-1).
 -- The top of stack is the last arg, so we pop from the highest register down to x0.
