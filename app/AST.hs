@@ -5,6 +5,14 @@ data Op
   | Sub
   | Mul
   | CommaOp
+  | LogicalOr
+  | LogicalAnd
+  | EqualOp
+  | NotEqualOp
+  | GreaterOp
+  | LessOp
+  | GreaterEqualOp
+  | LessEqualOp
   deriving (Show)
 
 data Expr

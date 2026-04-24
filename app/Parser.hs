@@ -139,7 +139,7 @@ parseAssign = do
 
 parseTernary :: Parser Expr
 parseTernary = do
-  cond <- parseTerm
+  cond <- parseLogicalOr
   ( do
       expect Question
       thenExpr <- parseExpr
@@ -148,6 +148,18 @@ parseTernary = do
       pure (TernaryOp cond thenExpr elseExpr)
     )
     `orElse` pure cond
+
+parseLogicalOr :: Parser Expr
+parseLogicalOr = chainL1 parseLogicalAnd (do expect Or; pure LogicalOr)
+
+parseLogicalAnd :: Parser Expr
+parseLogicalAnd = chainL1 parseEquality (do expect And; pure LogicalAnd)
+
+parseEquality :: Parser Expr
+parseEquality = chainL1 parseComparison parseEqualityOp
+
+parseComparison :: Parser Expr
+parseComparison = chainL1 parseTerm parseComparisonOp
 
 parseTerm :: Parser Expr
 parseTerm = do
@@ -196,6 +208,26 @@ parsePrimary = parseLiteral `orElse` parseVarExpr
 
 parseVarExpr :: Parser Expr
 parseVarExpr = VarExpr <$> satisfy (\case Identifier ident -> Just ident; _ -> Nothing)
+
+parseEqualityOp :: Parser Op
+parseEqualityOp =
+  satisfy
+    ( \case
+        EqualEqual -> Just EqualOp
+        NotEqual -> Just NotEqualOp
+        _ -> Nothing
+    )
+
+parseComparisonOp :: Parser Op
+parseComparisonOp =
+  satisfy
+    ( \case
+        Greater -> Just GreaterOp
+        Less -> Just LessOp
+        GreaterEqual -> Just GreaterEqualOp
+        LessEqual -> Just LessEqualOp
+        _ -> Nothing
+    )
 
 parseAddOp :: Parser Op
 parseAddOp =

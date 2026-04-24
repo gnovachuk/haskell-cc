@@ -1,3 +1,8 @@
 int main() {
-    print 1, 2, 3, 4;
+    int age = 18;
+    if (age <= 18) {
+        print 69;
+    } else {
+        print 420;
+    }
 }
